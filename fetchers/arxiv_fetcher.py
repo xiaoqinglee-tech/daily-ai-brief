@@ -1,4 +1,4 @@
-# fetchers/arxiv.py
+# fetchers/arxiv_fetcher.py
 """从 arXiv 拉取最近论文。"""
 from __future__ import annotations
 

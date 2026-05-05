@@ -1,9 +1,10 @@
-import sqlite3
 import json
 import logging
 import os
-from schema import Item
+import sqlite3
 from datetime import datetime, timedelta, timezone
+
+from schema import Item
 
 logger = logging.getLogger(__name__)
 
@@ -165,10 +166,6 @@ class ItemDB:
         self.conn.commit()
         if cursor.rowcount == 0:
             logger.warning("update_summary: item %s not found", item_id)
-
-    def get_brief_items(self, brief_date: str) -> list[Item]:
-        """查某一天简报包含的条目"""
-        raise NotImplementedError
 
     # 更新 LLM 处理结果
     def update_filter_result(self,
