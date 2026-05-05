@@ -25,7 +25,12 @@ class Item:
     extra: Dict[str, Any] = field(default_factory=dict)  # 来源特有字段
     
     fetched_at: datetime = field(default_factory=datetime.utcnow)
-    
+
+    # LLM 处理结果(fetcher 阶段为空,后续模块填)
+    llm_summary: str = ""
+    category: str = ""
+    importance: str = ""
+
     def to_dict(self) -> Dict[str, Any]:
         """转 dict,方便存数据库/序列化。"""
         d = asdict(self)

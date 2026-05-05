@@ -93,9 +93,12 @@ class ItemDB:
         return new_count, exist_count
 
     @staticmethod
-    def _row_to_item(row) -> Item:
-        """把 SQLite row 转回 Item 对象。"""
-        return Item(
+    def _row_to_item(row, has_llm_fields: bool = False) -> Item:
+        """把 SQLite row 转回 Item 对象
+        
+        has_llm_fields: 如果 SELECT 里包含了 llm_summary/category/importance,设 True。
+        """
+        item = Item(
             id=row[0],
             source=row[1],
             title=row[2],
@@ -107,6 +110,12 @@ class ItemDB:
             published_at=datetime.fromisoformat(row[8]),
             fetched_at=datetime.fromisoformat(row[9])
         )
+
+        if has_llm_fields:
+            item.llm_summary = row[10] or ""
+            item.category = row[11] or ""
+            item.importance = row[12] or ""
+        return item
 
     # 查询
     def get_unfiltered_items(self, days: int = 2) -> list[Item]:
@@ -181,8 +190,52 @@ class ItemDB:
         if cursor.rowcount == 0:
             logger.warning("update_filter_result: item %s not found", item_id)
 
-    def mark_in_brief(self, item_ids: list[str], brief_date: str):
-        raise NotImplementedError
+    def get_today_brief_items(self, days_window: int = 3) -> list[Item]:
+        """拿出过去 N 天通过 filter、有 summary、还没出现在任何简报里的条目。
+        
+        排序:先按 importance(P0 在前),再按 published_at 倒序。
+        
+        Args:
+            days_window: 时间窗口,只取过去 N 天 published 的论文。
+        """
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days_window)).isoformat()
+
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT id, source, title, url, summary,
+                authors, tags, extra,
+                published_at, fetched_at,
+                llm_summary, category, importance
+            FROM items
+            WHERE filter_pass = 1
+            AND llm_summary IS NOT NULL
+            AND llm_summary != ''
+            AND brief_date IS NULL
+            AND published_at >= ?
+            ORDER BY 
+            CASE importance WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 ELSE 2 END,
+            published_at DESC
+        ''', (cutoff,))
+
+        rows = cursor.fetchall()
+        items = [self._row_to_item(row, has_llm_fields=True) for row in rows]
+        logger.info("Found %d items for today's brief", len(items))
+        return items
+
+    def mark_in_brief(self, item_ids: list[str], brief_date: str) -> None:
+        """标记一批 item 出现在哪一天的简报里。"""
+        if not item_ids:
+            return
+        
+        cursor = self.conn.cursor()
+        placeholders = ','.join('?' * len(item_ids))
+        cursor.execute(
+            f'UPDATE items SET brief_date = ? WHERE id IN ({placeholders})',
+            [brief_date] + list(item_ids),
+        )
+        self.conn.commit()
+        
+        logger.info("Marked %d items into brief %s", cursor.rowcount, brief_date)
 
 
 if __name__ == "__main__":
