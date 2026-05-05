@@ -130,7 +130,32 @@ class ItemDB:
 
     def get_unsummarized_items(self) -> list[Item]:
         """拿出通过筛选但还没总结的条目"""
-        raise NotImplementedError
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT id, source, title, url, summary,
+                       authors, tags, extra,
+                       published_at, fetched_at
+            FROM items
+            WHERE filter_pass = 1
+              AND (llm_summary IS NULL OR llm_summary = '')
+            ORDER BY published_at DESC
+        ''')
+        rows = cursor.fetchall()
+        items = [self._row_to_item(row) for row in rows]
+        logger.info("Found %d items needing summarization", len(items))
+        return items
+
+    def update_summary(self, item_id: str, summary: str) -> None:
+        """写入 LLM 生成的总结"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            UPDATE items
+            SET llm_summary = ?
+            WHERE id = ?
+        ''', (summary, item_id))
+        self.conn.commit()
+        if cursor.rowcount == 0:
+            logger.warning("update_summary: item %s not found", item_id)
 
     def get_brief_items(self, brief_date: str) -> list[Item]:
         """查某一天简报包含的条目"""
@@ -155,9 +180,6 @@ class ItemDB:
         self.conn.commit()
         if cursor.rowcount == 0:
             logger.warning("update_filter_result: item %s not found", item_id)
-
-    def update_summary(self, item_id: str, summary: str, category: str, importance: str):
-        raise NotImplementedError
 
     def mark_in_brief(self, item_ids: list[str], brief_date: str):
         raise NotImplementedError
