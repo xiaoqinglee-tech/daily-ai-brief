@@ -9,11 +9,10 @@ from typing import List, Tuple
 from db import ItemDB
 from llm import LLMClient
 from schema import Item
+from config import FILTER_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
-# 默认每批多少条
-BATCH_SIZE = 5
 
 # 筛选用的 system prompt
 INTEREST_PROMPT = """\
@@ -107,7 +106,7 @@ def _is_valid_result(r: dict) -> bool:
 def filter_items(db: ItemDB,
                  llm: LLMClient,
                  days: int = 2,
-                 batch_size: int = BATCH_SIZE) -> Tuple[int, int]:
+                 batch_size: int = FILTER_BATCH_SIZE) -> Tuple[int, int]:
     """从 db 取最近 N 天 unfiltered items,用 LLM 筛选,把结果写回 db。
     
     Returns:

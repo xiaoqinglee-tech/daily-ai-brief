@@ -10,12 +10,10 @@ import re
 
 from db import ItemDB
 from schema import Item
+from config import BRIEFS_DIR
 
 logger = logging.getLogger(__name__)
 
-
-# 输出目录
-BRIEFS_DIR = Path("briefs")
 
 # Category 显示顺序(更重要的在前)
 CATEGORY_ORDER = ["Agent", "Infra", "RAG", "Training", "Other"]
