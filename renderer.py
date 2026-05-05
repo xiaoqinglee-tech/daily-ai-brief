@@ -6,6 +6,7 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 from typing import List, Optional
+import re
 
 from db import ItemDB
 from schema import Item
@@ -65,6 +66,22 @@ def render_today_brief(
     return output_path
 
 
+def _normalize_summary(text: str) -> str:
+    """规范化 LLM 总结的换行格式。
+    
+    无论 LLM 输出三段是用空格连接还是已经换行,都强制变成三行。
+    """
+    if not text:
+        return ""
+    
+    # 把每个【xxx】之前(除了开头)插入换行
+    # 例如 "【做了什么】... 【怎么做】..."  →  "【做了什么】...\n【怎么做】..."
+    normalized = re.sub(r'\s*(【[^】]+】)', r'\n\1', text.strip())
+    
+    # 去掉开头的空行(因为第一个【】之前也插入了换行)
+    return normalized.lstrip()
+
+
 def _render_markdown(
     today_str: str,
     items: List[Item],
@@ -72,35 +89,30 @@ def _render_markdown(
     ordered_categories: List[str],
 ) -> str:
     """构造 markdown 内容。"""
-    lines = []
+    parts = []
     
-    # 标题
-    lines.append(f"# AI Daily Brief - {today_str}")
-    lines.append("")
-    
-    # 顶部统计
+    # 标题 + 顶部统计
     stats_parts = [f"{cat} {len(grouped[cat])}" for cat in ordered_categories]
-    lines.append(f"> 共 {len(items)} 条 · {' / '.join(stats_parts)}")
-    lines.append("")
-    lines.append("---")
-    lines.append("")
+    parts.append(f"# AI Daily Brief - {today_str}\n")
+    parts.append(f"> 共 {len(items)} 条 · {' / '.join(stats_parts)}\n")
     
     # 各 category 章节
     for cat in ordered_categories:
         cat_items = grouped[cat]
-        lines.append(f"## {cat} ({len(cat_items)})")
-        lines.append("")
+        parts.append(f"## {cat} ({len(cat_items)})\n")
         
         for item in cat_items:
-            lines.append(f"### [{item.title}]({item.url})")
-            lines.append("")
-            lines.append(item.llm_summary)
-            lines.append("")
-            lines.append("---")
-            lines.append("")
+            parts.append(f"### [{item.title}]({item.url})\n")
+            
+            summary = _normalize_summary(item.llm_summary)
+            if summary:
+                parts.append(f"{summary}\n")
+            else:
+                # 没有总结的兜底(理论上不会出现,因为 SQL 已过滤)
+                parts.append("_(暂无总结)_\n")
     
-    return "\n".join(lines)
-
+    # 用双换行连接,自然形成段落间距
+    return "\n".join(parts)
 
 # ----------------------------------------------------------------------
 # Self-test
