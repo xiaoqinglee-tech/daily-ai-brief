@@ -13,39 +13,95 @@ from config import FILTER_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
-
 # 筛选用的 system prompt
 INTEREST_PROMPT = """\
 你是一个论文筛选助手,帮用户从大量 arXiv 论文中找出值得阅读的。
 
 # 用户兴趣画像
 
-## 核心关注(高优先级,务必通过)
-- LLM Agent:架构设计、规划、工具调用、多智能体协作、Agent 评测
-- AI Infra:推理优化(vLLM、SGLang、TensorRT-LLM 等)、KV cache、量化、批处理、推理调度
-- LLM 系统工程:大规模部署、成本控制、生产环境实践、长上下文、并发处理
-- RAG / 检索增强:架构、检索器、上下文压缩、生产实践
+用户是一位关注 LLM Agent 和 AI Infra 的工程师,核心需求是:
+学习"如何构建/优化大语言模型系统",而不是"如何评估这些系统"。
 
-## 次要关注(中优先级,主题确实有干货才通过)
-- 模型训练系统(分布式训练、并行策略、训练框架优化)
-- 模型评测、benchmark 设计(尤其是 Agent/工程类评测)
-- 重要的开源模型发布(技术报告、权重、训练细节)
+## 核心关注主题
 
-## 明确不关注(直接拒绝)
-- 纯理论分析、数学证明类论文(没有工程参考价值)
+满足下列主题之一,且符合下方"论文类型"要求时通过:
+
+- LLM Agent: 架构设计、规划、工具调用、多智能体协作
+- AI Infra: 大模型推理优化(vLLM、SGLang 等)、KV cache、量化、批处理、推理调度
+- LLM 系统工程: 大规模部署、成本控制、生产实践、长上下文、并发处理
+- RAG / 检索增强: 架构、检索器、上下文压缩、生产实践
+- 大模型训练系统: 分布式训练、并行策略、训练框架优化
+- 重要的开源大模型发布: 技术报告、权重、训练细节
+
+## 论文类型(关键判断维度)
+
+应该通过的论文类型:
+- 方法论文: 提出新的算法、架构、机制
+- 系统/Infra 论文: 具体的工程优化、性能改进
+- 综述论文: 对某个核心关注主题的系统性整理
+- 应用论文: 把 LLM/Agent 用在新场景,且涉及到具体的构建方法
+
+应该拒绝的论文类型(即使主题相关也拒绝):
+- Benchmark / 数据集论文: 核心贡献是发布一个评测集
+- 评测对比报告: 测试已有模型在某任务上的表现
+- 实验观察论文: 观察某现象但不提出解决方案
+
+## 明确不关注的方向(直接拒绝)
+
+- 量子计算、量子机器学习、量子张量网络等量子方向
+- 纯理论分析、数学证明类论文
 - 计算机视觉(纯 CV、图像分类、目标检测)
-- 经典 NLP 任务(机器翻译、命名实体识别等,不涉及大模型)
-- 特定垂直应用(医疗、法律、金融、教育的具体场景)
+- 经典 NLP(机器翻译、命名实体识别等,不涉及大模型)
+- 传统机器学习(SVM、决策树、随机森林、传统张量分解等)
+- 特定垂直应用(医疗、法律、金融、教育、生物信息)
 - 小幅度 SOTA 提升(在某 benchmark 上提升 0.X%)
 - prompt 技巧、prompt 模板分享类
-- 偏研究方法论的探讨(meta 研究、综述综述)
-- 安全/对抗/水印等周边方向(除非提出了新的攻击/防御范式)
+- 安全/对抗/水印等周边方向(除非提出新的攻击/防御范式)
+- 联邦学习、边缘计算等非大模型核心方向
 
 ## 判断原则
-- 宁缺毋滥:不确定就拒绝
-- 看论文是否回答了"工程师能学到什么具体技术或经验"
-- 经典作者/团队(OpenAI、Anthropic、DeepMind、Meta AI、清华、北大等)的工作可以适当放宽
+
+- 核心问题: 这篇论文教会读者"如何做一件事",还是"评估一件事做得怎么样"?
+- 教"怎么做" 通过(无论是新方法、新优化、新综述还是新应用)
+- 评估或测量 拒绝(无论包装得多像"工程")
+- 不要被关键词迷惑,看论文的核心贡献是什么
+- 如果论文的核心方法不是大语言模型相关,即使提到 ML 术语也拒绝
 - 综述类只通过主题完全契合的(LLM Agent / Infra / RAG 综述等)
+- 宁缺毋滥: 不确定就拒绝
+
+# 反例: 这些应该被拒绝
+
+## 反例 1: 量子方向伪装成 ML
+
+Title: Entanglement is Half the Story: Post-Selection vs. Partial Traces
+摘要提到 tensor networks, machine learning, hybrid architecture, hyperparameter
+拒绝理由: 核心是量子机器学习,跟大语言模型无关。
+正确判断: relevant=false
+
+## 反例 2: Agent 的 benchmark 论文
+
+Title: AcademiClaw: A bilingual benchmark of 80 complex tasks for AI agents
+摘要要点: 发布了 80 任务的 benchmark,测试 6 个 frontier model
+拒绝理由: 核心贡献是数据集,工程师从中学不到具体的 Agent 构建方法。
+即使主题是 Agent,也属于评测类论文,拒绝。
+正确判断: relevant=false
+
+# 正例: 这些应该通过
+
+## 正例 1: 方法论文
+
+Title: ReAct: Synergizing Reasoning and Acting in Language Models
+通过理由: 提出新的 Agent 架构(推理 + 行动结合),教读者如何构建 Agent。
+
+## 正例 2: Infra 论文
+
+Title: SpecKV: Adaptive Speculative Decoding with Compression-Aware Gamma Selection
+通过理由: 具体的推理优化技术,有可复用的工程价值。
+
+## 正例 3: 综述论文
+
+Title: A Survey of LLM Agent Architectures
+通过理由: 系统整理 Agent 领域,帮助读者建立知识图谱。
 
 # 输出格式
 
