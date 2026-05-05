@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from schema import Item
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -91,10 +92,41 @@ class ItemDB:
         logger.debug("Upserted items: %d new, %d existing", new_count, exist_count)
         return new_count, exist_count
 
+    @staticmethod
+    def _row_to_item(row) -> Item:
+        """把 SQLite row 转回 Item 对象。"""
+        return Item(
+            id=row[0],
+            source=row[1],
+            title=row[2],
+            url=row[3],
+            summary=row[4] or "",
+            authors=json.loads(row[5]) if row[5] else [],
+            tags=json.loads(row[6]) if row[6] else [],
+            extra=json.loads(row[7]) if row[7] else {},
+            published_at=datetime.fromisoformat(row[8]),
+            fetched_at=datetime.fromisoformat(row[9])
+        )
+
     # 查询
     def get_unfiltered_items(self, days: int = 2) -> list[Item]:
         """拿出最近 N 天还没被筛选的条目,供 filter 模块处理"""
-        raise NotImplementedError
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT id, source, title, url, summary,
+                       authors, tags, extra,
+                       published_at, fetched_at
+            FROM items
+                       WHERE filter_pass IS NULL
+                       AND published_at >= ?
+            ORDER BY published_at DESC
+        ''', (cutoff,))
+        rows = cursor.fetchall()
+        items = [self._row_to_item(row) for row in rows]
+        logger.info("Found %d unfiltered items in last %d days", len(items), days)
+        return items
 
     def get_unsummarized_items(self) -> list[Item]:
         """拿出通过筛选但还没总结的条目"""
@@ -105,8 +137,24 @@ class ItemDB:
         raise NotImplementedError
 
     # 更新 LLM 处理结果
-    def update_filter_result(self, item_id: str, passed: bool, reason: str):
-        raise NotImplementedError
+    def update_filter_result(self,
+                             item_id: str,
+                             passed: bool,
+                             reason: str,
+                             category: str = "",
+                             importance: str = ""):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            UPDATE items
+            SET filter_pass = ?,
+                filter_reason = ?,
+                category = ?,
+                importance = ?
+            WHERE id = ?
+        ''', (1 if passed else 0, reason, category, importance, item_id))
+        self.conn.commit()
+        if cursor.rowcount == 0:
+            logger.warning("update_filter_result: item %s not found", item_id)
 
     def update_summary(self, item_id: str, summary: str, category: str, importance: str):
         raise NotImplementedError
