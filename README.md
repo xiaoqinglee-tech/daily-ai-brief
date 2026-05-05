@@ -1,4 +1,5 @@
 # daily-ai-brief
+[![Daily AI Brief Generator](https://github.com/xiaoqinglee-tech/daily-ai-brief/actions/workflows/daily.yml/badge.svg)](https://github.com/xiaoqinglee-tech/daily-ai-brief/actions/workflows/daily.yml)
 
 > 一个用 LLM 作为筛选与总结引擎的 AI 论文每日简报工具。从 arXiv 抓取上百篇论文,用大模型筛掉无关内容、生成结构化总结,最终输出一份你愿意每天看的 Markdown 简报。
 
@@ -68,7 +69,7 @@ arXiv API
 - Python 3.11
 - LLM: 任何 OpenAI 兼容 API(默认硅基流动 GLM)
 - Storage: SQLite
-- Scheduler: 计划用 GitHub Actions
+- Scheduler: GitHub Actions (每天 UTC 0:00 自动触发)
 
 ## Project Structure
 
@@ -152,7 +153,7 @@ FILTER_BATCH_SIZE=5
 - [x] LLM 总结(三段式 + 字数控制)
 - [x] Markdown 渲染(分类分组,跨渲染器兼容)
 - [x] 主入口与统一日志
-- [ ] GitHub Actions 每日自动运行
+- [x] GitHub Actions 每日自动运行
 - [ ] RSS 博客源(Simon Willison / Lilian Weng / Anthropic Engineering 等)
 - [ ] GitHub trending(关注度增长快的 LLM/Agent 项目)
 - [ ] Prompt 迭代实验记录
