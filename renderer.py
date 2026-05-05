@@ -67,20 +67,17 @@ def render_today_brief(
 
 
 def _normalize_summary(text: str) -> str:
-    """规范化 LLM 总结的换行格式。
-    
-    无论 LLM 输出三段是用空格连接还是已经换行,都强制变成三行。
-    """
+    """规范化 LLM 总结,把三段用 <br> 分隔,跨渲染器兼容。"""
     if not text:
         return ""
     
-    # 把每个【xxx】之前(除了开头)插入换行
-    # 例如 "【做了什么】... 【怎么做】..."  →  "【做了什么】...\n【怎么做】..."
-    normalized = re.sub(r'\s*(【[^】]+】)', r'\n\1', text.strip())
+    # 用正则找出所有【XXX】XXX 形式的段
+    segments = re.findall(r'(【[^】]+】[^【]*)', text)
     
-    # 去掉开头的空行(因为第一个【】之前也插入了换行)
-    return normalized.lstrip()
-
+    if not segments:
+        return text.strip()
+    
+    return "<br>".join(seg.strip() for seg in segments)
 
 def _render_markdown(
     today_str: str,
