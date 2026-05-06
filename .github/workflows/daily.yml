@@ -2,8 +2,8 @@ name: Daily AI Brief Generator
 
 on:
   schedule:
-    # 每天早上 8 点 (北京时间) 运行 -> 对应 UTC 时间 0:00
-    - cron: '0 0 * * *'
+    # 彻底错峰：设置为 UTC 时间 23:38 (对应北京时间早上 7:38)
+    - cron: '38 23 * * *'
   workflow_dispatch: # 允许在 Actions 页面手动点击运行，方便调试
 
 jobs:
